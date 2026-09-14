@@ -1,0 +1,16 @@
+# Binaries
+teamlead
+teamlead-cli
+bin/
+
+# Teamlead runtime
+.teamlead/worktrees/
+.teamlead/.lock
+COLLABORATION.md
+
+# OS / Editor artifacts
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.tmp
