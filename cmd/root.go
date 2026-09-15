@@ -34,6 +34,9 @@ func Execute() {
 	}
 }
 
+// Version is the current version of teamlead-cli, injectable via ldflags at build time.
+var Version = "1.0.0"
+
 func init() {
-	rootCmd.Version = "1.0.0"
+	rootCmd.Version = Version
 }

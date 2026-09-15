@@ -105,3 +105,13 @@ func TestCLIGuide(t *testing.T) {
 		t.Errorf("expected protocol text in output")
 	}
 }
+
+func TestCLIVersion(t *testing.T) {
+	out, err := executeCommand("--version")
+	if err != nil {
+		t.Fatalf("--version failed: %v", err)
+	}
+	if !strings.Contains(out, Version) {
+		t.Errorf("expected version %q in output, got: %s", Version, out)
+	}
+}

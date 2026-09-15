@@ -56,7 +56,52 @@ RECENT ACTIVITY
 
 ## 📦 Installation & Build
 
-### From Source
+### 1. One-Line Installer (Recommended)
+
+`teamlead-cli` is distributed as a single static binary for **macOS**, **Linux**, and **Windows**. It has zero runtime dependencies and requires no package managers.
+
+The installer is designed to be completely **conflict-free**:
+- ✅ **No environment variable clashes**: Never sets, overrides, or pollutes environment variables.
+- ✅ **Clean shell configuration**: Automatically detects if the install directory is already in your `$PATH`. If so, it leaves `.zshrc`, `.bashrc`, and `.bash_profile` 100% untouched.
+- ✅ **Idempotent**: Never appends duplicate entries on reinstall or upgrade.
+
+**macOS & Linux:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/JordyDevrix/teamlead-cli/main/install.sh | bash
+```
+
+*Custom installation options:*
+```bash
+# Install to custom directory:
+curl -fsSL https://raw.githubusercontent.com/JordyDevrix/teamlead-cli/main/install.sh | bash -s -- --dir ~/.local/bin
+
+# Skip shell profile modification entirely:
+curl -fsSL https://raw.githubusercontent.com/JordyDevrix/teamlead-cli/main/install.sh | bash -s -- --no-modify-path
+
+# Install a specific version:
+curl -fsSL https://raw.githubusercontent.com/JordyDevrix/teamlead-cli/main/install.sh | bash -s -- --version v1.0.0
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/JordyDevrix/teamlead-cli/main/install.ps1 | iex
+```
+
+---
+
+### 2. Precompiled Binaries from GitHub Releases
+
+Standalone release archives and SHA256 checksums are available on the [GitHub Releases](https://github.com/JordyDevrix/teamlead-cli/releases) page:
+- **macOS Apple Silicon (M-series)**: `teamlead-darwin-arm64.tar.gz`
+- **macOS Intel**: `teamlead-darwin-amd64.tar.gz`
+- **Linux x86_64**: `teamlead-linux-amd64.tar.gz`
+- **Linux ARM64**: `teamlead-linux-arm64.tar.gz`
+- **Windows x86_64**: `teamlead-windows-amd64.zip`
+
+---
+
+### 3. From Source
+
 ```bash
 git clone https://github.com/JordyDevrix/teamlead-cli.git
 cd teamlead-cli
@@ -64,7 +109,7 @@ make build
 # Binary is built at ./teamlead-cli (and symlinked as ./teamlead)
 ```
 
-### Install to `$GOPATH/bin`
+Install to `$GOPATH/bin`:
 ```bash
 make install
 ```

@@ -2,6 +2,9 @@
 teamlead
 teamlead-cli
 bin/
+dist/
+staging/
+release-assets/
 
 # Teamlead runtime
 .teamlead/worktrees/
