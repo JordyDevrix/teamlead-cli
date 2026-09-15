@@ -55,36 +55,31 @@ jobs:
     name: Build (${{ matrix.os }}-${{ matrix.arch }})
     needs: [test]
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: darwin
             arch: arm64
-            runner: macos-latest
             archive: teamlead-darwin-arm64.tar.gz
-            binary: teamlead
+            format: tar
           - os: darwin
             arch: amd64
-            runner: macos-13
             archive: teamlead-darwin-amd64.tar.gz
-            binary: teamlead
+            format: tar
           - os: linux
             arch: amd64
-            runner: ubuntu-latest
             archive: teamlead-linux-amd64.tar.gz
-            binary: teamlead
+            format: tar
           - os: linux
             arch: arm64
-            runner: ubuntu-latest
             archive: teamlead-linux-arm64.tar.gz
-            binary: teamlead
+            format: tar
           - os: windows
             arch: amd64
-            runner: windows-latest
             archive: teamlead-windows-amd64.zip
-            binary: teamlead.exe
+            format: zip
 
     steps:
       - name: Checkout repository
@@ -109,50 +104,36 @@ jobs:
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Build standalone binary (Unix)
-        if: runner.os != 'Windows'
+      - name: Build and Package Standalone Release
         run: |
           mkdir -p staging
+          EXT=""
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            EXT=".exe"
+          fi
+
           CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
             -ldflags="-s -w -X 'github.com/JordyDevrix/teamlead-cli/cmd.Version=${{ steps.ver.outputs.tag }}'" \
-            -o staging/teamlead .
-          chmod +x staging/teamlead
-          cp staging/teamlead staging/teamlead-cli
+            -o "staging/teamlead${EXT}" .
+
+          chmod +x "staging/teamlead${EXT}"
+          cp "staging/teamlead${EXT}" "staging/teamlead-cli${EXT}"
           cp README.md staging/
           if [ -f LICENSE ]; then cp LICENSE staging/; fi
 
-          # Smoke test when running natively on the host
-          if [ "${{ runner.os }}" = "Linux" ] && [ "${{ matrix.arch }}" = "amd64" ]; then
-            ./staging/teamlead --version
-            ./staging/teamlead --help
-          fi
-          if [ "${{ runner.os }}" = "macOS" ] && [ "${{ matrix.arch }}" = "arm64" ]; then
+          # Smoke test Linux amd64 binary natively
+          if [ "${{ matrix.os }}" = "linux" ] && [ "${{ matrix.arch }}" = "amd64" ]; then
             ./staging/teamlead --version
             ./staging/teamlead --help
           fi
 
-          tar -czvf "${{ matrix.archive }}" -C staging .
-          shasum -a 256 "${{ matrix.archive }}" > "${{ matrix.archive }}.sha256"
+          if [ "${{ matrix.format }}" = "zip" ]; then
+            (cd staging && zip -r "../${{ matrix.archive }}" .)
+          else
+            tar -czvf "${{ matrix.archive }}" -C staging .
+          fi
 
-      - name: Build standalone binary (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Path staging -Force
-          $env:CGO_ENABLED = "0"
-          $env:GOOS = "windows"
-          $env:GOARCH = "${{ matrix.arch }}"
-          go build -ldflags="-s -w -X 'github.com/JordyDevrix/teamlead-cli/cmd.Version=${{ steps.ver.outputs.tag }}'" -o staging\teamlead.exe .
-          Copy-Item staging\teamlead.exe staging\teamlead-cli.exe
-          Copy-Item README.md staging\
-          if (Test-Path LICENSE) { Copy-Item LICENSE staging\ }
-
-          .\staging\teamlead.exe --version
-          .\staging\teamlead.exe --help
-
-          Compress-Archive -Path staging\* -DestinationPath ${{ matrix.archive }} -Force
-          $hash = (Get-FileHash -Algorithm SHA256 ${{ matrix.archive }}).Hash.ToLower()
-          "$hash  ${{ matrix.archive }}" | Out-File -Encoding ascii -NoNewline "${{ matrix.archive }}.sha256"
+          sha256sum "${{ matrix.archive }}" > "${{ matrix.archive }}.sha256"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
