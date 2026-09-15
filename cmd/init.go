@@ -31,8 +31,11 @@ var initCmd = &cobra.Command{
 		// 1. Git initialization check
 		if !git.IsGitRepo(cwd) {
 			ui.Info("No git repository detected. Initializing git repository...")
-			if _, err := git.RunGit(cwd, "init"); err != nil {
-				return fmt.Errorf("git init failed: %w", err)
+			if _, err := git.RunGit(cwd, "init", "-b", "main"); err != nil {
+				if _, err2 := git.RunGit(cwd, "init"); err2 != nil {
+					return fmt.Errorf("git init failed: %w", err2)
+				}
+				_, _ = git.RunGit(cwd, "branch", "-M", "main")
 			}
 		}
 
@@ -111,7 +114,7 @@ var initCmd = &cobra.Command{
 
 		// 5. Commit initial configuration
 		_, _ = git.RunGit(repoRoot, "add", ".gitignore", "AGENTS.md")
-		_, _ = git.RunGit(repoRoot, "commit", "-m", "chore: initialize teamlead coordination")
+		_, _ = git.RunGit(repoRoot, "-c", "user.name=teamlead", "-c", "user.email=teamlead@local", "commit", "-m", "chore: initialize teamlead coordination")
 
 		ui.Successf("Initialized teamlead in %s", repoRoot)
 		ui.Infof("Base branch set to '%s' with '%s' merge strategy.", currentBranch, initStrategy)

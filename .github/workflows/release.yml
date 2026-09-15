@@ -32,6 +32,12 @@ jobs:
           go-version-file: 'go.mod'
           check-latest: true
 
+      - name: Configure Git Author
+        run: |
+          git config --global user.name "Test Runner"
+          git config --global user.email "runner@teamlead.ai"
+          git config --global init.defaultBranch main
+
       - name: Run test suite
         run: |
           go test -v -count=1 ./...

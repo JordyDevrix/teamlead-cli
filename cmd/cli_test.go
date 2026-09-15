@@ -20,15 +20,26 @@ func executeCommand(args ...string) (string, error) {
 	return buf.String(), err
 }
 
+func cleanTempDir(dir string) {
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err == nil {
+			_ = os.Chmod(path, 0666)
+		}
+		return nil
+	})
+	_ = os.RemoveAll(dir)
+}
+
 func TestCLIInit(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "tl-cli-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
-
 	origWd, _ := os.Getwd()
-	defer os.Chdir(origWd)
+	defer func() {
+		_ = os.Chdir(origWd)
+		cleanTempDir(tmpDir)
+	}()
 	_ = os.Chdir(tmpDir)
 
 	_, err = executeCommand("init")
@@ -49,10 +60,11 @@ func TestCLITaskAndLockFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
-
 	origWd, _ := os.Getwd()
-	defer os.Chdir(origWd)
+	defer func() {
+		_ = os.Chdir(origWd)
+		cleanTempDir(tmpDir)
+	}()
 	_ = os.Chdir(tmpDir)
 
 	_, _ = git.RunGit(tmpDir, "init", "-b", "main")

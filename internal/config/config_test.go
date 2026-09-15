@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -85,7 +86,9 @@ func TestFindRepoRoot(t *testing.T) {
 
 	evalTmp, _ := filepath.EvalSymlinks(tmpDir)
 	evalRoot, _ := filepath.EvalSymlinks(root)
-	if evalRoot != evalTmp {
-		t.Errorf("expected root '%s', got '%s'", evalTmp, evalRoot)
+	cleanTmp := strings.TrimPrefix(filepath.Clean(evalTmp), `\\?\`)
+	cleanRoot := strings.TrimPrefix(filepath.Clean(evalRoot), `\\?\`)
+	if !strings.EqualFold(cleanRoot, cleanTmp) {
+		t.Errorf("expected root '%s', got '%s'", cleanTmp, cleanRoot)
 	}
 }

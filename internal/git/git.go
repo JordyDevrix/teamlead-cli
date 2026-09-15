@@ -102,7 +102,7 @@ func HasCommits(cwd string) bool {
 // EnsureInitialCommit creates an empty initial commit if no commits exist.
 func EnsureInitialCommit(cwd string) error {
 	if !HasCommits(cwd) {
-		_, err := RunGit(cwd, "commit", "--allow-empty", "-m", "chore: initial commit by teamlead")
+		_, err := RunGit(cwd, "-c", "user.name=teamlead", "-c", "user.email=teamlead@local", "commit", "--allow-empty", "-m", "chore: initial commit by teamlead")
 		return err
 	}
 	return nil
@@ -176,10 +176,11 @@ func CreateWorktree(repoRoot, worktreePath, branchName, baseBranch string) error
 	_, err := RunGit(repoRoot, "show-ref", "--verify", fmt.Sprintf("refs/heads/%s", branchName))
 	branchExists := (err == nil)
 
+	cleanWtPath := filepath.ToSlash(worktreePath)
 	if branchExists {
-		_, err = RunGit(repoRoot, "worktree", "add", worktreePath, branchName)
+		_, err = RunGit(repoRoot, "worktree", "add", cleanWtPath, branchName)
 	} else {
-		_, err = RunGit(repoRoot, "worktree", "add", "-b", branchName, worktreePath, baseBranch)
+		_, err = RunGit(repoRoot, "worktree", "add", "-b", branchName, cleanWtPath, baseBranch)
 	}
 
 	return err
@@ -187,16 +188,23 @@ func CreateWorktree(repoRoot, worktreePath, branchName, baseBranch string) error
 
 // RemoveWorktree deletes a worktree and cleans up git worktree metadata.
 func RemoveWorktree(repoRoot, worktreePath string, force bool) error {
+	cleanWtPath := filepath.ToSlash(worktreePath)
 	args := []string{"worktree", "remove"}
 	if force {
 		args = append(args, "--force")
 	}
-	args = append(args, worktreePath)
+	args = append(args, cleanWtPath)
 
 	_, _ = RunGit(repoRoot, args...)
 	_, _ = RunGit(repoRoot, "worktree", "prune")
 
 	if fi, err := os.Stat(worktreePath); err == nil && fi.IsDir() {
+		_ = filepath.Walk(worktreePath, func(path string, info os.FileInfo, err error) error {
+			if err == nil {
+				_ = os.Chmod(path, 0666)
+			}
+			return nil
+		})
 		_ = os.RemoveAll(worktreePath)
 		_, _ = RunGit(repoRoot, "worktree", "prune")
 	}
@@ -243,12 +251,13 @@ func GetWorktreeStatus(worktreePath string) (*WorktreeStatus, error) {
 			}
 		}
 
+		cleanFilePath := filepath.ToSlash(filePath)
 		// Filter internal teamlead files and OS artifacts
-		if strings.HasPrefix(filePath, ".teamlead/") ||
-			filePath == ".teamlead" ||
-			filePath == "COLLABORATION.md" ||
-			filePath == "AGENTS.md" ||
-			filePath == ".DS_Store" {
+		if strings.HasPrefix(cleanFilePath, ".teamlead/") ||
+			cleanFilePath == ".teamlead" ||
+			cleanFilePath == "COLLABORATION.md" ||
+			cleanFilePath == "AGENTS.md" ||
+			cleanFilePath == ".DS_Store" {
 			continue
 		}
 
@@ -399,7 +408,7 @@ func MergeBranchIntoBase(repoRoot, sourceBranch, baseBranch, strategy, commitMes
 			_, _ = RunGit(repoRoot, "reset", "--hard", "HEAD")
 			return false, fmt.Sprintf("Merge squash conflict: %v", err), nil
 		}
-		if _, err := RunGit(repoRoot, "commit", "-m", msg); err != nil {
+		if _, err := RunGit(repoRoot, "-c", "user.name=teamlead", "-c", "user.email=teamlead@local", "commit", "-m", msg); err != nil {
 			_, _ = RunGit(repoRoot, "reset", "--hard", "HEAD")
 			return false, fmt.Sprintf("Commit squashed changes failed: %v", err), nil
 		}
