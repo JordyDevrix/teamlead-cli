@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // GitError represents an execution error from a git command.
@@ -186,6 +187,32 @@ func CreateWorktree(repoRoot, worktreePath, branchName, baseBranch string) error
 	return err
 }
 
+// SafeRemoveAll removes a file or directory, retrying if Windows file locks or directory permissions block deletion.
+func SafeRemoveAll(path string) error {
+	var lastErr error
+	for i := 0; i < 30; i++ {
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			return nil
+		}
+		_ = filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
+			if err == nil {
+				if info.IsDir() {
+					_ = os.Chmod(p, 0777)
+				} else {
+					_ = os.Chmod(p, 0666)
+				}
+			}
+			return nil
+		})
+		lastErr = os.RemoveAll(path)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			return nil
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return lastErr
+}
+
 // RemoveWorktree deletes a worktree and cleans up git worktree metadata.
 func RemoveWorktree(repoRoot, worktreePath string, force bool) error {
 	cleanWtPath := filepath.ToSlash(worktreePath)
@@ -198,14 +225,9 @@ func RemoveWorktree(repoRoot, worktreePath string, force bool) error {
 	_, _ = RunGit(repoRoot, args...)
 	_, _ = RunGit(repoRoot, "worktree", "prune")
 
-	if fi, err := os.Stat(worktreePath); err == nil && fi.IsDir() {
-		_ = filepath.Walk(worktreePath, func(path string, info os.FileInfo, err error) error {
-			if err == nil {
-				_ = os.Chmod(path, 0666)
-			}
-			return nil
-		})
-		_ = os.RemoveAll(worktreePath)
+	// If directory still exists (common on Windows due to file lock delays), force clean
+	if _, err := os.Stat(worktreePath); !os.IsNotExist(err) {
+		_ = SafeRemoveAll(worktreePath)
 		_, _ = RunGit(repoRoot, "worktree", "prune")
 	}
 

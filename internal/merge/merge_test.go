@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JordyDevrix/teamlead-cli/internal/agent"
 	"github.com/JordyDevrix/teamlead-cli/internal/config"
@@ -51,7 +52,7 @@ func setupMergeReadyRepo(t *testing.T) (string, string, *task.Task) {
 
 func TestMergeValidationCatchesDirtyWorktree(t *testing.T) {
 	repoDir, wtPath, _ := setupMergeReadyRepo(t)
-	defer os.RemoveAll(repoDir)
+	defer git.SafeRemoveAll(repoDir)
 
 	// Leave uncommitted file
 	_ = os.WriteFile(filepath.Join(wtPath, "feature_x.go"), []byte("package main\n"), 0644)
@@ -70,7 +71,7 @@ func TestMergeValidationCatchesDirtyWorktree(t *testing.T) {
 
 func TestSuccessfulMergeAndCleanup(t *testing.T) {
 	repoDir, wtPath, taskItem := setupMergeReadyRepo(t)
-	defer os.RemoveAll(repoDir)
+	defer git.SafeRemoveAll(repoDir)
 
 	// Commit file inside worktree
 	_ = os.WriteFile(filepath.Join(wtPath, "feature_x.go"), []byte("package main\nfunc Feature() bool { return true }\n"), 0644)
@@ -119,7 +120,15 @@ func TestSuccessfulMergeAndCleanup(t *testing.T) {
 	}
 
 	// Verify worktree cleaned up
-	if _, err := os.Stat(wtPath); !os.IsNotExist(err) {
+	worktreeDeleted := false
+	for i := 0; i < 20; i++ {
+		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+			worktreeDeleted = true
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !worktreeDeleted {
 		t.Errorf("expected worktree directory deleted, but still exists")
 	}
 }

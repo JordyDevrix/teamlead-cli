@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const (
@@ -166,5 +167,19 @@ func SaveConfig(cfg *Config, repoRoot string) error {
 		return err
 	}
 
-	return os.Rename(tmpName, cfgPath)
+	var renameErr error
+	for i := 0; i < 10; i++ {
+		_ = os.Chmod(cfgPath, 0666)
+		renameErr = os.Rename(tmpName, cfgPath)
+		if renameErr == nil {
+			return nil
+		}
+		_ = os.Remove(cfgPath)
+		renameErr = os.Rename(tmpName, cfgPath)
+		if renameErr == nil {
+			return nil
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return renameErr
 }

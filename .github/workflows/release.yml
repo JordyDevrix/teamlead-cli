@@ -2,8 +2,13 @@ name: Build & Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       tag:
@@ -18,6 +23,9 @@ jobs:
   test:
     name: Test Suite (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -37,6 +45,7 @@ jobs:
           git config --global user.name "Test Runner"
           git config --global user.email "runner@teamlead.ai"
           git config --global init.defaultBranch main
+          git config --global core.autocrlf false
 
       - name: Run test suite
         run: |
@@ -45,6 +54,7 @@ jobs:
   build:
     name: Build (${{ matrix.os }}-${{ matrix.arch }})
     needs: [test]
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -156,6 +166,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: [build]
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

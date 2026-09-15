@@ -21,13 +21,7 @@ func executeCommand(args ...string) (string, error) {
 }
 
 func cleanTempDir(dir string) {
-	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err == nil {
-			_ = os.Chmod(path, 0666)
-		}
-		return nil
-	})
-	_ = os.RemoveAll(dir)
+	_ = git.SafeRemoveAll(dir)
 }
 
 func TestCLIInit(t *testing.T) {

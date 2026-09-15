@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/JordyDevrix/teamlead-cli/internal/config"
@@ -20,8 +19,8 @@ var (
 )
 
 type lockState struct {
-	fd    int
-	depth int
+	handle osLockHandle
+	depth  int
 }
 
 // WithFileLock acquires an exclusive advisory file lock on .teamlead/.lock.
@@ -47,8 +46,7 @@ func WithFileLock(repoRoot string, fn func() error) error {
 			lockMu.Lock()
 			state.depth--
 			if state.depth == 0 {
-				_ = syscall.Flock(state.fd, syscall.LOCK_UN)
-				_ = syscall.Close(state.fd)
+				_ = releaseOSLock(state.handle)
 				delete(activeLocks, lockFilePath)
 			}
 			lockMu.Unlock()
@@ -56,21 +54,15 @@ func WithFileLock(repoRoot string, fn func() error) error {
 		return fn()
 	}
 
-	fd, err := syscall.Open(lockFilePath, syscall.O_CREAT|syscall.O_RDWR, 0644)
+	handle, err := acquireOSLock(lockFilePath)
 	if err != nil {
 		lockMu.Unlock()
-		return fmt.Errorf("failed to open lock file %s: %w", lockFilePath, err)
-	}
-
-	if err := syscall.Flock(fd, syscall.LOCK_EX); err != nil {
-		_ = syscall.Close(fd)
-		lockMu.Unlock()
-		return fmt.Errorf("failed to acquire file lock: %w", err)
+		return err
 	}
 
 	activeLocks[lockFilePath] = &lockState{
-		fd:    fd,
-		depth: 1,
+		handle: handle,
+		depth:  1,
 	}
 	lockMu.Unlock()
 
@@ -80,8 +72,7 @@ func WithFileLock(repoRoot string, fn func() error) error {
 		if ok {
 			st.depth--
 			if st.depth == 0 {
-				_ = syscall.Flock(st.fd, syscall.LOCK_UN)
-				_ = syscall.Close(st.fd)
+				_ = releaseOSLock(st.handle)
 				delete(activeLocks, lockFilePath)
 			}
 		}
@@ -151,7 +142,21 @@ func WriteJSONFile(repoRoot, filename string, data interface{}) error {
 		return err
 	}
 
-	return os.Rename(tmpPath, targetPath)
+	var renameErr error
+	for i := 0; i < 10; i++ {
+		_ = os.Chmod(targetPath, 0666)
+		renameErr = os.Rename(tmpPath, targetPath)
+		if renameErr == nil {
+			return nil
+		}
+		_ = os.Remove(targetPath)
+		renameErr = os.Rename(tmpPath, targetPath)
+		if renameErr == nil {
+			return nil
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return renameErr
 }
 
 // EventEntry represents an audit log event in events.jsonl.

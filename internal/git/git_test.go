@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/JordyDevrix/teamlead-cli/internal/config"
 )
@@ -27,7 +28,7 @@ func createTestGitRepo(t *testing.T) string {
 
 func TestWorktreeLifecycle(t *testing.T) {
 	repoDir := createTestGitRepo(t)
-	defer os.RemoveAll(repoDir)
+	defer SafeRemoveAll(repoDir)
 
 	wtDir := filepath.Join(repoDir, ".teamlead", "worktrees", "agent-claude")
 	branchName := "teamlead/claude/task-1"
@@ -89,7 +90,15 @@ func TestWorktreeLifecycle(t *testing.T) {
 	if err := RemoveWorktree(repoDir, wtDir, true); err != nil {
 		t.Fatalf("RemoveWorktree failed: %v", err)
 	}
-	if _, err := os.Stat(wtDir); !os.IsNotExist(err) {
+	worktreeDeleted := false
+	for i := 0; i < 20; i++ {
+		if _, err := os.Stat(wtDir); os.IsNotExist(err) {
+			worktreeDeleted = true
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !worktreeDeleted {
 		t.Errorf("expected worktree directory removed, but it still exists")
 	}
 }
